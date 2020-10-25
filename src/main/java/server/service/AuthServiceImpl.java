@@ -21,11 +21,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public String getNick(String login, String password) {
+    public UserEntity getUser(String login, String password) {
         DBServiceImpl dbServiceimpl = new DBServiceImpl();
         UserEntity user = dbServiceimpl.findUser(login);
-        if ((user.getName().equals(login)) || (user.getPassword().equals(password))) {
-            return login;
+        if ((user.getName().equals(login)) & (user.getPassword().equals(password))) {
+            return user;
         } else {
             return null;
         }

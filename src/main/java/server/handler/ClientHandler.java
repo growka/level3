@@ -2,12 +2,17 @@ package server.handler;
 
 import server.inter.DBService;
 import server.inter.Server;
+import server.service.DBServiceImpl;
+import server.service.UserEntity;
 
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 
 public class ClientHandler {
 
@@ -15,11 +20,13 @@ public class ClientHandler {
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
+    private Date date = new Date();
+    private SimpleDateFormat sdf = new SimpleDateFormat("dd.MM.yy k:mm:ss");
 
-    private String nick;
+    private UserEntity user;
 
     public String getNick() {
-        return nick;
+        return user.getName();
     }
 
     public ClientHandler(Server server, Socket socket) {
@@ -28,7 +35,7 @@ public class ClientHandler {
             this.socket = socket;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
-            this.nick = "";
+            this.user = user;
             new Thread(() -> {
                 try {
                     long a = System.currentTimeMillis();
@@ -41,7 +48,7 @@ public class ClientHandler {
                     }
 
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    System.out.println("Потеряна связь с клиентом " + user.getName());
                 } finally {
                     closeConnection();
                 }
@@ -56,13 +63,13 @@ public class ClientHandler {
             String str = in.readUTF();
             if (str.startsWith("/auth")) {
                 String [] dataArray = str.split("\\s");
-                String nick = server.getAuthService().getNick(dataArray[1], dataArray[2]);
-                if (nick != null) {
-                    if (!server.isNickBusy(nick)) {
-                        sendMsg("/authOk " + nick);
-                        this.nick = nick;
-                        server.broadcastMsg(this.nick + " зашёл в чат.");
+                user = server.getAuthService().getUser(dataArray[1], dataArray[2]);
+                if (user != null) {
+                    if (!server.isNickBusy(user.getName())) {
+                        sendMsg("/authOk " + user.getName());
+                        this.user = user;
                         server.subcribe(this);
+                        server.broadcastMsg(this.user.getName() + " зашёл в чат.");
                         return true;
                     } else {
                         sendMsg("Учетная запись уже используется!");
@@ -70,6 +77,7 @@ public class ClientHandler {
                     }
                 } else {
                     sendMsg("Неверный логин/пароль");
+                    System.out.println("Неудачная аутентификация пользователя " + dataArray[1] + " с паролем " + dataArray[2]);
                     return false;
                 }
             }
@@ -78,7 +86,7 @@ public class ClientHandler {
 
     public void sendMsg(String msg) {
         try {
-            out.writeUTF(msg);
+            out.writeUTF(sdf.format(new Date()) + " " + msg);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -102,16 +110,23 @@ public class ClientHandler {
                     String msg = clientStr.substring(4 + nickname.length());
                     server.sndMsgToClient(this,nickname,msg);
                 }
+                if (clientStr.startsWith("/setname")) {
+                    String [] strArray = clientStr.split("\\s");
+                    String oldName = user.getName();
+                    DBServiceImpl dbService = new DBServiceImpl();
+                    dbService.updateUserName(user, strArray[1]);
+                    server.broadcastMsg(oldName + " сменил ник на " + user.getName());
+                }
                     continue;
             }
-            server.broadcastMsg(nick + ": " + clientStr);
+            server.broadcastMsg(user.getName() + ": " + clientStr);
         }
 
     }
 
     public void closeConnection() {
         server.unsubcribe(this);
-        server.broadcastMsg(nick + " вышел из чата.");
+        server.broadcastMsg(user.getName() + " вышел из чата.");
         try {
             in.close();
         } catch (IOException e) {

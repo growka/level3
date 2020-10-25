@@ -1,9 +1,11 @@
 package server.inter;
 
+import server.service.UserEntity;
+
 public interface AuthService {
 
     void start();
-    String getNick(String login, String password);
+    UserEntity getUser(String login, String password);
     void stop();
 
 }

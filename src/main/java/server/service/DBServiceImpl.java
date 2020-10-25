@@ -3,8 +3,6 @@ package server.service;
 import server.inter.DBService;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class DBServiceImpl implements DBService {
 
@@ -18,39 +16,6 @@ public class DBServiceImpl implements DBService {
 
         } return null;
     }
-    @Override
-    public ArrayList<UserEntity> findAll() {
-
-        ArrayList<UserEntity> users = new ArrayList<UserEntity>();
-        Connection connection = null;
-
-        try {
-            connection = getInstance();
-            Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SELECT * FROM users");
-
-            while (resultSet.next()) {
-                UserEntity user = new UserEntity(
-                        resultSet.getInt("id"),
-                        resultSet.getString("name"),
-                        resultSet.getString("password")
-                );
-                users.add(user);
-            }
-
-        } catch (SQLException e) {
-            throw new RuntimeException("SWW during DB-query");
-        } finally {
-            if (connection != null) {
-                try {
-                    connection.close();
-                } catch (SQLException throwables) {
-                    throwables.printStackTrace();
-                }
-            }
-        }
-        return users;
-    }
 
     @Override
     public UserEntity findUser(String login) {
@@ -61,7 +26,7 @@ public class DBServiceImpl implements DBService {
         try {
             connection = getInstance();
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SELECT * FROM users WHERE name = " + login);
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM users WHERE name = \"" + login + "\"");
             resultSet.next();
 
             user.setId(resultSet.getInt("id"));
@@ -108,7 +73,25 @@ public class DBServiceImpl implements DBService {
     }
 
     @Override
-    public boolean updateUserName(UserEntity user) {
-        return false;
+    public void updateUserName(UserEntity user, String newName) {
+        Connection connection = null;
+        try {
+            connection = getInstance();
+            PreparedStatement statement = connection.prepareStatement("UPDATE users SET name = ? WHERE id = ?" );
+            statement.setString(1, newName);
+            statement.setInt(2, user.getId());
+            statement.execute();
+            user.setName(newName);
+        } catch (SQLException e) {
+            throw new RuntimeException("SWW during DB-query");
+        } finally {
+            if (connection != null) {
+                try {
+                    connection.close();
+                } catch (SQLException throwables) {
+                    throwables.printStackTrace();
+                }
+            }
+        }
     }
 }
